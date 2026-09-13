@@ -41,9 +41,11 @@ export async function POST(request) {
   if (!skill_level || typeof skill_level !== 'string') {
     return NextResponse.json({ error: 'skill_level is required' }, { status: 400 })
   }
-  if (!quest_generation_time || typeof quest_generation_time !== 'string') {
-    return NextResponse.json({ error: 'quest_generation_time is required' }, { status: 400 })
-  }
+
+  // Optional - the `goals` column is NOT NULL with no default, so we fill in
+  // a sensible one server-side instead of requiring it in the form.
+  const questGenerationTime =
+    typeof quest_generation_time === 'string' && quest_generation_time.trim() !== '' ? quest_generation_time : '09:00'
 
   const timeframeDays = Number(timeframe_days)
   if (!Number.isInteger(timeframeDays) || timeframeDays <= 0) {
@@ -51,8 +53,9 @@ export async function POST(request) {
   }
 
   const hoursPerDay = Number(hours_per_day)
-  if (!Number.isInteger(hoursPerDay) || hoursPerDay <= 0) {
-    return NextResponse.json({ error: 'hours_per_day must be a positive whole number' }, { status: 400 })
+  // Must be a positive multiple of 0.5 (30-minute increments).
+  if (!Number.isFinite(hoursPerDay) || hoursPerDay <= 0 || Math.round(hoursPerDay * 2) !== hoursPerDay * 2) {
+    return NextResponse.json({ error: 'hours_per_day must be a positive multiple of 0.5' }, { status: 400 })
   }
 
   // --- Save the goal ---
@@ -65,7 +68,7 @@ export async function POST(request) {
       skill_level,
       timeframe_days: timeframeDays,
       hours_per_day: hoursPerDay,
-      quest_generation_time,
+      quest_generation_time: questGenerationTime,
       status: 'active',
     })
     .select()

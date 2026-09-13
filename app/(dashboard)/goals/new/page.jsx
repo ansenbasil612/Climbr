@@ -4,6 +4,18 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 
+// 0.5 to 8 hours, in 30-minute increments.
+const HOURS_PER_DAY_OPTIONS = Array.from({ length: 16 }, (_, i) => (i + 1) * 0.5)
+
+function formatHoursLabel(h) {
+  const wholeHours = Math.floor(h)
+  const minutes = Math.round((h - wholeHours) * 60)
+  const parts = []
+  if (wholeHours > 0) parts.push(`${wholeHours} hour${wholeHours === 1 ? '' : 's'}`)
+  if (minutes > 0) parts.push(`${minutes} min${minutes === 1 ? '' : 's'}`)
+  return parts.join(' ')
+}
+
 export default function NewGoal() {
   const router = useRouter()
   const [checkingAuth, setCheckingAuth] = useState(true)
@@ -11,9 +23,12 @@ export default function NewGoal() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [skillLevel, setSkillLevel] = useState('beginner')
-  const [timeframeDays, setTimeframeDays] = useState('30')
+  const [years, setYears] = useState('0')
+  const [months, setMonths] = useState('1')
+  const [weeks, setWeeks] = useState('0')
+  const [days, setDays] = useState('0')
   const [hoursPerDay, setHoursPerDay] = useState('1')
-  const [questGenerationTime, setQuestGenerationTime] = useState('09:00')
+  const [questGenerationTime, setQuestGenerationTime] = useState('')
 
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -41,6 +56,12 @@ export default function NewGoal() {
       return
     }
 
+    // Years/months/weeks/days are a form-only convenience - the API only
+    // stores a single total day count. Approximating a month as 30 days and
+    // a year as 365 (there's no single goal creation date to anchor a
+    // calendar-accurate conversion against yet).
+    const timeframeDays = Number(years) * 365 + Number(months) * 30 + Number(weeks) * 7 + Number(days)
+
     const res = await fetch('/api/goals', {
       method: 'POST',
       headers: {
@@ -51,7 +72,7 @@ export default function NewGoal() {
         title,
         description,
         skill_level: skillLevel,
-        timeframe_days: Number(timeframeDays),
+        timeframe_days: timeframeDays,
         hours_per_day: Number(hoursPerDay),
         quest_generation_time: questGenerationTime,
       }),
@@ -123,41 +144,77 @@ export default function NewGoal() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm text-gray-400">Timeframe (days)</label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={timeframeDays}
-                onChange={(e) => setTimeframeDays(e.target.value)}
-                required
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm text-gray-400">Hours/day</label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={hoursPerDay}
-                onChange={(e) => setHoursPerDay(e.target.value)}
-                required
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-white"
-              />
+          <div className="space-y-2">
+            <label className="text-sm text-gray-400">Timeframe</label>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={years}
+                  onChange={(e) => setYears(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-3 text-white text-center focus:outline-none focus:border-white"
+                />
+                <p className="text-xs text-gray-500 text-center">Years</p>
+              </div>
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={months}
+                  onChange={(e) => setMonths(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-3 text-white text-center focus:outline-none focus:border-white"
+                />
+                <p className="text-xs text-gray-500 text-center">Months</p>
+              </div>
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={weeks}
+                  onChange={(e) => setWeeks(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-3 text-white text-center focus:outline-none focus:border-white"
+                />
+                <p className="text-xs text-gray-500 text-center">Weeks</p>
+              </div>
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={days}
+                  onChange={(e) => setDays(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-3 text-white text-center focus:outline-none focus:border-white"
+                />
+                <p className="text-xs text-gray-500 text-center">Days</p>
+              </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Daily quest reminder time</label>
+            <label className="text-sm text-gray-400">Hours/day</label>
+            <select
+              value={hoursPerDay}
+              onChange={(e) => setHoursPerDay(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+            >
+              {HOURS_PER_DAY_OPTIONS.map((h) => (
+                <option key={h} value={h}>
+                  {formatHoursLabel(h)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm text-gray-400">Daily quest reminder time (optional)</label>
             <input
               type="time"
               value={questGenerationTime}
               onChange={(e) => setQuestGenerationTime(e.target.value)}
-              required
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
             />
           </div>
